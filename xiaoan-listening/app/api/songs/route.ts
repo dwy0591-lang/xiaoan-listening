@@ -11,7 +11,12 @@ const platformHosts: Record<string, string[]> = {
 
 function safeMusicUrl(value: string, platform: string) {
   try {
-    const url = new URL(value);
+    // Music apps usually copy a full share sentence on mobile, for example:
+    // “分享某某的单曲…… https://163cn.tv/xxxx”。Accept that whole
+    // sentence and quietly pick out the HTTPS link for the listener.
+    const match = value.match(/https:\/\/[^\s<>“”"']+/i);
+    const candidate = (match?.[0] || value).replace(/[，。！？、；：,)\]）】》]+$/u, "");
+    const url = new URL(candidate);
     if (url.protocol !== "https:") return null;
     const allowed = platformHosts[platform] || [];
     if (!allowed.some((host) => url.hostname === host || url.hostname.endsWith(`.${host}`))) {
