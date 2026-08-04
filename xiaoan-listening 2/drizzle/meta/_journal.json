@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1785489021196,
+      "tag": "0000_lethal_vengeance",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1785502502816,
+      "tag": "0001_powerful_enchantress",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1785508288993,
+      "tag": "0002_ordinary_argent",
+      "breakpoints": true
+    }
+  ]
+}
