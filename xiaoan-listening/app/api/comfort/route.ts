@@ -127,6 +127,133 @@ function understand(content: string): TopicReply {
   );
 }
 
+type ArkResponse = {
+  output_text?: string;
+  output?: Array<{
+    content?: Array<{ type?: string; text?: string }>;
+  }>;
+};
+
+type ComfortReply = {
+  heard: string;
+  reply: string;
+};
+
+const recentRequests = new Map<string, number[]>();
+
+function isRateLimited(request: Request) {
+  const forwardedFor = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  const visitor = forwardedFor || request.headers.get("x-real-ip") || "anonymous";
+  const now = Date.now();
+  const windowStart = now - 10 * 60 * 1000;
+  const recent = (recentRequests.get(visitor) || []).filter((time) => time > windowStart);
+
+  if (recent.length >= 6) return true;
+  recent.push(now);
+  recentRequests.set(visitor, recent);
+  return false;
+}
+
+function extractArkText(data: ArkResponse) {
+  if (data.output_text?.trim()) return data.output_text.trim();
+
+  return (data.output || [])
+    .flatMap((item) => item.content || [])
+    .filter((item) => item.type === "output_text" || Boolean(item.text))
+    .map((item) => item.text || "")
+    .join("")
+    .trim();
+}
+
+function parseComfortReply(text: string): ComfortReply | null {
+  try {
+    const jsonText = text.match(/\{[\s\S]*\}/)?.[0] || text;
+    const value = JSON.parse(jsonText) as Partial<ComfortReply>;
+    const heard = value.heard?.trim().slice(0, 40);
+    const reply = value.reply?.trim().slice(0, 420);
+
+    if (!heard || !reply) return null;
+    return { heard, reply };
+  } catch {
+    return null;
+  }
+}
+
+async function askArk(content: string, mood: string) {
+  const apiKey = process.env.ARK_API_KEY?.trim();
+  const model = process.env.ARK_MODEL?.trim();
+  const baseUrl = (process.env.ARK_BASE_URL || "https://ark.cn-beijing.volces.com/api/v3")
+    .trim()
+    .replace(/\/$/, "");
+
+  if (!apiKey || !model) return null;
+
+  const prompt = `你是“小岸”，一只安静、真诚、稍微有点可爱的海边水豚朋友。你正在回复一位写下心事的用户。
+
+用户选择的心情：${mood}
+用户写下的内容：${content}
+
+请严格做到：
+1. 先准确理解这段话具体在说什么，绝不能套用无关的恋爱、工作或家庭话术。
+2. 像熟悉的朋友聊天，先接住情绪，再回应其中最具体的担忧或细节；不要说教，不要诊断，不要使用“你要相信自己”等空话。
+3. 可以自然加入一句水豚或海边视角，但不要每句都卖萌。
+4. 回复控制在90至160个中文字符，温柔但不腻，不假装真人或心理咨询师。
+5. 只返回JSON，不要Markdown，格式必须是：{"heard":"用10至24个字概括真正听见的事","reply":"给用户的完整回复"}`;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12_000);
+
+  try {
+    const response = await fetch(`${baseUrl}/responses`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        input: prompt,
+        max_output_tokens: 320,
+        thinking: { type: "disabled" },
+      }),
+      signal: controller.signal,
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      console.error("Ark request failed", response.status, await response.text());
+      return null;
+    }
+
+    const text = extractArkText((await response.json()) as ArkResponse);
+    return parseComfortReply(text);
+  } catch (error) {
+    console.error("Ark request error", error);
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function fallbackReply(content: string, mood: string) {
+  const topic = understand(content);
+  const openings = moodOpenings[mood] || ["嗯，我把你写的都看完啦。"];
+  const opening = pick(openings, content.length + mood.length);
+  const ending = pick(
+    [
+      "先歇五分钟，我去给你占个能看海的位置。",
+      "你先站在自己这边，我坐你旁边。",
+      "没想明白也没关系，水豚做决定也会发呆很久。",
+    ],
+    content.charCodeAt(0) + content.length,
+  );
+
+  return {
+    heard: topic.heard,
+    reply: `${opening}${topic.detail(content)}${ending}`,
+  };
+}
+
 export async function POST(request: Request) {
   try {
     const payload = (await request.json()) as { content?: string; mood?: string };
@@ -146,21 +273,19 @@ export async function POST(request: Request) {
       });
     }
 
-    const topic = understand(content);
-    const openings = moodOpenings[mood] || ["嗯，我把你写的都看完啦。"];
-    const opening = pick(openings, content.length + mood.length);
-    const ending = pick(
-      [
-        "先歇五分钟，我去给你占个能看海的位置。",
-        "你先站在自己这边，我坐你旁边。",
-        "没想明白也没关系，水豚做决定也会发呆很久。",
-      ],
-      content.charCodeAt(0) + content.length,
-    );
+    if (isRateLimited(request)) {
+      return Response.json(
+        { error: "小岸今天听见你好多句话啦，先陪自己歇一会儿，十分钟后再来找我吧" },
+        { status: 429 },
+      );
+    }
+
+    const generated = await askArk(content, mood);
+    const answer = generated || fallbackReply(content, mood);
 
     return Response.json({
-      heard: topic.heard,
-      reply: `${opening}${topic.detail(content)}${ending}`,
+      heard: answer.heard,
+      reply: answer.reply,
       urgent: false,
     });
   } catch {
