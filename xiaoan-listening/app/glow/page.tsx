@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { CalmBackground, CapybaraAside, InnerHeader } from "../ui";
 
 const dailyQuotes = [
@@ -67,6 +68,10 @@ export default function GlowPage() {
       <CalmBackground />
       <InnerHeader />
       <section className="wide-wrap">
+        <nav className="section-tabs" aria-label="我的海岸分区">
+          <Link href="/me">我的记录</Link>
+          <Link className="active" href="/glow">闪光贝壳</Link>
+        </nav>
         <div className="section-intro centered">
           <span className="section-number">03</span>
           <p className="eyebrow">小岸今天也捡到了漂亮贝壳</p>
@@ -84,7 +89,7 @@ export default function GlowPage() {
         <div className="glow-grid">
           <section className="glow-panel deposit-panel">
             <span className="panel-icon">✎</span>
-            <p className="eyebrow">Deposit a light</p>
+            <p className="eyebrow">给自己记一笔</p>
             <h2>存入一束微光</h2>
             <p>写下一件做成的小事、一个优点，或值得被喜欢的地方。</p>
             <textarea
@@ -100,10 +105,10 @@ export default function GlowPage() {
 
           <section className="glow-panel draw-panel">
             <span className="panel-icon">✦</span>
-            <p className="eyebrow">Receive a light</p>
-            <h2>抽取陌生人的微光</h2>
+            <p className="eyebrow">接住一束同频的光</p>
+            <h2>抽取一位同频人的微光</h2>
             <div className={`drawn-note ${drawn ? "has-text" : ""}`}>
-              <span>来自一位陌生 ISFP</span>
+              <span>来自海岸上一个和你同频的人</span>
               <p>{drawn || "有一束温柔的自我肯定，正在这里等你。"} </p>
             </div>
             <button

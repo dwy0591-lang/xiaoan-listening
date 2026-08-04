@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { CalmBackground, InnerHeader } from "../ui";
 
 type JoyTask = {
@@ -54,6 +55,8 @@ function formatTime(value: string) {
 }
 
 export default function JoyPage() {
+  const [state, setState] = useState<"tired" | "stuck" | "restless" | "blank">("tired");
+  const [showAll, setShowAll] = useState(false);
   const [selected, setSelected] = useState(joyTasks[0].id);
   const [active, setActive] = useState<JoyTask | null>(() => {
     if (typeof window === "undefined") return null;
@@ -68,10 +71,31 @@ export default function JoyPage() {
     typeof window === "undefined" ? [] : readList<JoyRecord>("little-shore-joy-records"),
   );
   const [surprise, setSurprise] = useState<JoyRecord | null>(null);
-  const [exportNotice, setExportNotice] = useState("");
+
+  const recommendedIds = useMemo(() => ({
+    tired: ["bath", "hotel", "show"],
+    stuck: ["walk", "sunset", "sing"],
+    restless: ["walk", "bath", "cook"],
+    blank: ["milk-tea", "show", "sunset"],
+  }[state]), [state]);
+
+  const visibleTasks = showAll
+    ? joyTasks
+    : recommendedIds.map((id) => joyTasks.find((task) => task.id === id)).filter((task): task is JoyTask => Boolean(task));
+
+  useEffect(() => {
+    const mood = new URLSearchParams(window.location.search).get("mood") || "";
+    if (/焦虑|生气/.test(mood)) setState("restless");
+    else if (/迷茫|内耗|后悔/.test(mood)) setState("stuck");
+    else if (/孤独|误解/.test(mood)) setState("blank");
+  }, []);
+
+  useEffect(() => {
+    if (!visibleTasks.some((task) => task.id === selected)) setSelected(visibleTasks[0]?.id || joyTasks[0].id);
+  }, [state, showAll]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const chooseForMe = () => {
-    const next = joyTasks[Math.floor(Math.random() * joyTasks.length)];
+    const next = visibleTasks[Math.floor(Math.random() * visibleTasks.length)] || joyTasks[0];
     setSelected(next.id);
   };
 
@@ -96,44 +120,6 @@ export default function JoyPage() {
     localStorage.removeItem("little-shore-active-joy");
   };
 
-  const exportRecords = () => {
-    const thoughts = readList<{ content: string; mood: string; createdAt: string }>(
-      "weiguang-private-thoughts",
-    );
-    const glows = readList<{ content: string; createdAt: string }>("little-shore-glows");
-    const joys = readList<JoyRecord>("little-shore-joy-records");
-    const lines = [
-      "小岸替我收好的记录",
-      `导出时间：${new Date().toLocaleString("zh-CN")}`,
-      "",
-      "—— 我的心事 ——",
-      ...(thoughts.length
-        ? thoughts.map((item) => `[${formatTime(item.createdAt)} · ${item.mood}]\n${item.content}`)
-        : ["还没有私密心事。"]),
-      "",
-      "—— 我哄自己开心的小事 ——",
-      ...(joys.length
-        ? joys.map((item) => `[${formatTime(item.completedAt)}] ${item.title}\n小岸说：${item.reward}`)
-        : ["还没有完成记录。"]),
-      "",
-      "—— 我存下的闪光 ——",
-      ...(glows.length
-        ? glows.map((item) => `[${formatTime(item.createdAt)}] ${item.content}`)
-        : ["还没有闪光记录。"]),
-      "",
-      "这些文字来自“小岸在听呢”，只保存在你的设备里。",
-    ];
-    const file = new Blob([lines.join("\n\n")], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(file);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `小岸替我收好的记录-${new Date().toISOString().slice(0, 10)}.txt`;
-    link.click();
-    URL.revokeObjectURL(url);
-    setExportNotice("装好啦，已经放进你的下载文件里。");
-    window.setTimeout(() => setExportNotice(""), 2600);
-  };
-
   return (
     <main className="inner-page joy-page">
       <CalmBackground />
@@ -153,8 +139,22 @@ export default function JoyPage() {
           <button type="button" onClick={chooseForMe}>不知道做什么，让小岸挑</button>
         </div>
 
+        <div className="joy-state-picker" aria-label="选择现在的状态">
+          <span>小岸先看看你现在更像哪一种：</span>
+          {[
+            ["tired", "有点累"],
+            ["stuck", "脑子打结"],
+            ["restless", "心里毛躁"],
+            ["blank", "空空的"],
+          ].map(([value, label]) => (
+            <button className={state === value ? "selected" : ""} type="button" key={value} onClick={() => setState(value as typeof state)}>{label}</button>
+          ))}
+        </div>
+
+        {!showAll && <p className="joy-recommend-note">小岸先替你挑了 3 件比较不费力的事。</p>}
+
         <div className="joy-task-grid">
-          {joyTasks.map((task) => (
+          {visibleTasks.map((task) => (
             <button
               className={`joy-task-card ${task.color} ${selected === task.id ? "selected" : ""}`}
               type="button"
@@ -168,6 +168,9 @@ export default function JoyPage() {
             </button>
           ))}
         </div>
+        <button className="joy-show-all" type="button" onClick={() => setShowAll((value) => !value)}>
+          {showAll ? "只看小岸推荐的 3 件" : "想看看全部开心小事"}
+        </button>
 
         {!active ? (
           <div className="joy-start-row">
@@ -196,11 +199,8 @@ export default function JoyPage() {
               <p className="eyebrow">我有在好好照顾自己</p>
               <h2>被小岸记住的开心小事</h2>
             </div>
-            <button className="export-button" type="button" onClick={exportRecords}>
-              ↓ 导出我的记录
-            </button>
+            <Link className="export-button" href="/me">去我的海岸看全部记录</Link>
           </div>
-          {exportNotice && <p className="export-notice">{exportNotice}</p>}
           {records.length ? (
             <div className="joy-record-list">
               {records.slice(0, 6).map((record) => (
@@ -214,7 +214,7 @@ export default function JoyPage() {
           ) : (
             <div className="joy-empty">第一件开心小事，等你做完回来告诉小岸。</div>
           )}
-          <p className="record-privacy">心事、开心小事和你存下的闪光会一起导出；文件只会下载到你的设备。</p>
+          <p className="record-privacy">这些完成记录只保存在这台设备上，你可以在“我的海岸”统一查看和导出。</p>
         </section>
       </section>
 

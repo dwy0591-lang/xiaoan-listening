@@ -3,7 +3,7 @@ import { getDb } from "../../../db";
 import { pageViews } from "../../../db/schema";
 import { hasSupabase, supabaseRequest } from "../../../db/supabase";
 
-const allowedPaths = new Set(["/", "/write", "/plaza", "/joy", "/glow", "/music"]);
+const allowedPaths = new Set(["/", "/write", "/plaza", "/joy", "/glow", "/music", "/me"]);
 
 export async function POST(request: Request) {
   try {

@@ -502,17 +502,47 @@ export function AnalyticsBeacon() {
   return null;
 }
 
+const primaryLinks = [
+  { href: "/write", label: "说给小岸", icon: "✎" },
+  { href: "/plaza", label: "同频海滩", icon: "≈" },
+  { href: "/joy", label: "开心一下", icon: "☀" },
+  { href: "/me", label: "我的海岸", icon: "⌂" },
+];
+
+function isActivePath(pathname: string, href: string) {
+  if (href === "/plaza") return pathname === "/plaza" || pathname === "/music";
+  if (href === "/me") return pathname === "/me" || pathname === "/glow";
+  return pathname === href;
+}
+
+export function PrimaryNav({ className = "" }: { className?: string }) {
+  const pathname = usePathname();
+  return (
+    <nav className={`primary-nav ${className}`.trim()} aria-label="主导航">
+      {primaryLinks.map((item) => (
+        <Link
+          href={item.href}
+          key={item.href}
+          className={isActivePath(pathname, item.href) ? "active" : ""}
+          aria-current={isActivePath(pathname, item.href) ? "page" : undefined}
+        >
+          <span aria-hidden="true">{item.icon}</span>
+          {item.label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+export function MobileDock() {
+  return <PrimaryNav className="mobile-dock" />;
+}
+
 export function InnerHeader() {
   return (
     <header className="inner-header">
       <SiteMark />
-      <nav aria-label="主导航">
-        <Link href="/write">说给小岸</Link>
-        <Link href="/plaza">同频海滩</Link>
-        <Link href="/joy">开心一下</Link>
-        <Link href="/glow">闪光贝壳</Link>
-        <Link href="/music">同频歌单</Link>
-      </nav>
+      <PrimaryNav />
       <div className="header-actions">
         <ShareSiteButton />
         <AmbientAudio />

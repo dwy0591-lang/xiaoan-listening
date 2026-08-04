@@ -1,29 +1,68 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { CalmBackground, InnerHeader } from "../ui";
 
-const moods = [
+const quickMoods = [
   "自我内耗",
-  "委屈迷茫",
-  "生气",
-  "后悔",
   "焦虑不安",
+  "委屈难过",
+  "生气烦躁",
   "有点孤独",
-  "被误解",
+  "迷茫没方向",
   "偶尔欣喜",
-  "渴望被看见",
 ];
+
+const moodGroups = [
+  {
+    title: "心里有点沉",
+    hint: "像潮水压在胸口",
+    items: ["低落没劲", "想哭一下", "失望了", "麻木空白"],
+  },
+  {
+    title: "脑袋停不下来",
+    hint: "一件事反复绕圈",
+    items: ["后悔自责", "害怕失败", "选择困难", "压力很大"],
+  },
+  {
+    title: "和别人有关",
+    hint: "有些话卡在关系里",
+    items: ["被误解", "关系别扭", "被忽视", "想念某人", "舍不得", "渴望被看见"],
+  },
+  {
+    title: "也有一点亮",
+    hint: "今天不全是坏天气",
+    items: ["松了一口气", "被治愈", "有点期待", "为自己骄傲"],
+  },
+];
+
 const moodIcons: Record<string, string> = {
   自我内耗: "☁",
-  委屈迷茫: "〰",
-  生气: "♨",
-  后悔: "↶",
   焦虑不安: "≈",
+  委屈难过: "〰",
+  生气烦躁: "♨",
   有点孤独: "☾",
-  被误解: "◌",
+  迷茫没方向: "⌁",
   偶尔欣喜: "☀",
+  低落没劲: "∿",
+  想哭一下: "◡",
+  失望了: "⋯",
+  麻木空白: "○",
+  后悔自责: "↶",
+  害怕失败: "△",
+  选择困难: "⇆",
+  压力很大: "≋",
+  被误解: "◌",
+  关系别扭: "⌇",
+  被忽视: "◍",
+  想念某人: "☾",
+  舍不得: "∞",
   渴望被看见: "✦",
+  松了一口气: "≈",
+  被治愈: "❀",
+  有点期待: "⌁",
+  为自己骄傲: "✧",
 };
 
 type SavedThought = {
@@ -35,13 +74,17 @@ type SavedThought = {
 
 export default function WritePage() {
   const [content, setContent] = useState("");
-  const [mood, setMood] = useState(moods[0]);
+  const [mood, setMood] = useState(quickMoods[0]);
   const [mode, setMode] = useState<"private" | "public">("private");
   const [message, setMessage] = useState("");
   const [botReply, setBotReply] = useState("");
   const [heard, setHeard] = useState("");
   const [urgentReply, setUrgentReply] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [showAllMoods, setShowAllMoods] = useState(false);
+  const [submittedContent, setSubmittedContent] = useState("");
+  const [replySaved, setReplySaved] = useState(false);
+  const [feedback, setFeedback] = useState<"understood" | "missed" | "">("");
 
   const submit = async () => {
     const trimmed = content.trim();
@@ -91,11 +134,57 @@ export default function WritePage() {
       );
       setHeard(replyData.heard || "你此刻真正想说的事");
       setUrgentReply(Boolean(replyData.urgent));
+      setSubmittedContent(trimmed);
+      setReplySaved(false);
+      setFeedback("");
       setContent("");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "刚才没有收好，再试一次吧。");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const saveLetter = () => {
+    if (!submittedContent || !botReply || replySaved) {
+      setBotReply("");
+      return;
+    }
+    try {
+      const saved = JSON.parse(localStorage.getItem("little-shore-letters") || "[]") as Array<{
+        id: string;
+        content: string;
+        mood: string;
+        heard: string;
+        reply: string;
+        createdAt: string;
+      }>;
+      saved.unshift({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        content: submittedContent,
+        mood,
+        heard,
+        reply: botReply,
+        createdAt: new Date().toISOString(),
+      });
+      localStorage.setItem("little-shore-letters", JSON.stringify(saved.slice(0, 80)));
+      setReplySaved(true);
+    } finally {
+      setBotReply("");
+    }
+  };
+
+  const leaveFeedback = (value: "understood" | "missed") => {
+    setFeedback(value);
+    try {
+      const saved = JSON.parse(localStorage.getItem("little-shore-reply-feedback") || "[]") as unknown[];
+      saved.unshift({ value, mood, createdAt: new Date().toISOString() });
+      localStorage.setItem("little-shore-reply-feedback", JSON.stringify(saved.slice(0, 100)));
+    } catch {
+      localStorage.setItem(
+        "little-shore-reply-feedback",
+        JSON.stringify([{ value, mood, createdAt: new Date().toISOString() }]),
+      );
     }
   };
 
@@ -133,8 +222,9 @@ export default function WritePage() {
 
           <fieldset className="mood-field">
             <legend>选一个最接近的心情</legend>
+            <p className="mood-picker-note">选不准也没关系，挑一个现在最像你的就好。</p>
             <div className="mood-list">
-              {moods.map((item) => (
+              {quickMoods.map((item) => (
                 <button
                   type="button"
                   key={item}
@@ -145,6 +235,33 @@ export default function WritePage() {
                 </button>
               ))}
             </div>
+            {showAllMoods ? (
+              <div className="mood-catalog">
+                {moodGroups.map((group) => (
+                  <section className="mood-group" key={group.title}>
+                    <div className="mood-group-title">
+                      <strong>{group.title}</strong>
+                      <span>{group.hint}</span>
+                    </div>
+                    <div className="mood-list">
+                      {group.items.map((item) => (
+                        <button
+                          type="button"
+                          key={item}
+                          className={mood === item ? "selected" : ""}
+                          onClick={() => setMood(item)}
+                        >
+                          <span aria-hidden="true">{moodIcons[item]}</span> {item}
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            ) : null}
+            <button className="mood-more" type="button" onClick={() => setShowAllMoods((value) => !value)}>
+              {showAllMoods ? "先收起来" : "没找到？看看更细的心情"}
+            </button>
           </fieldset>
 
           <div className="delivery-grid">
@@ -167,6 +284,12 @@ export default function WritePage() {
               <small>也许会收到一句“嗯，我懂”</small>
             </button>
           </div>
+
+          <p className="delivery-privacy">
+            {mode === "private"
+              ? "这封心事只保存在你的浏览器；为了让小岸回信，文字会安全发送给豆包大模型处理，但不会出现在同频海滩。"
+              : "这封心事会匿名出现在同频海滩，也会发送给豆包大模型生成一封只给你的回信。"}
+          </p>
 
           <div className="submit-row">
             <p>{message || "交给我吧，我会好好读。"}</p>
@@ -194,10 +317,16 @@ export default function WritePage() {
               </div>
             </div>
             <p>{botReply}</p>
+            <div className="reply-feedback" aria-label="这封回信是否贴近你的感受">
+              <span>这次小岸听懂了吗？</span>
+              <button className={feedback === "understood" ? "selected" : ""} type="button" onClick={() => leaveFeedback("understood")}>听懂我了</button>
+              <button className={feedback === "missed" ? "selected" : ""} type="button" onClick={() => leaveFeedback("missed")}>有点答非所问</button>
+            </div>
             <small>如果这件事已经压得你喘不过气，记得也去找现实里信得过的人陪陪你。</small>
-            <button type="button" onClick={() => setBotReply("")}>
-              嗯，收到啦
-            </button>
+            <div className="reply-actions">
+              <button type="button" onClick={saveLetter}>收下这封回信</button>
+              <Link href={`/joy?mood=${encodeURIComponent(mood)}`} onClick={saveLetter}>让小岸陪我做一件小事</Link>
+            </div>
           </div>
         </div>
       )}

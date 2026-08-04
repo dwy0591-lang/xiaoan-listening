@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { CalmBackground, CapybaraAside, InnerHeader } from "../ui";
 
 type Song = {
@@ -13,6 +14,13 @@ type Song = {
 };
 
 const platforms = ["网易云音乐", "QQ音乐", "Apple Music"];
+
+function detectPlatform(value: string) {
+  if (/music\.163\.com|163cn\.tv/i.test(value)) return "网易云音乐";
+  if (/(^|\.)y\.qq\.com|qq\.com/i.test(value)) return "QQ音乐";
+  if (/music\.apple\.com/i.test(value)) return "Apple Music";
+  return "";
+}
 
 export default function MusicPage() {
   const [songs, setSongs] = useState<Song[]>([]);
@@ -58,11 +66,28 @@ export default function MusicPage() {
     }
   };
 
+  const updateShareText = (value: string) => {
+    setUrl(value);
+    const detected = detectPlatform(value);
+    if (detected) {
+      setPlatform(detected);
+      setNotice(`小岸认出来了：这是${detected}的分享。`);
+    } else if (value.trim()) {
+      setNotice("整段分享文字也可以直接粘贴，小岸会从里面找到链接。");
+    } else {
+      setNotice("");
+    }
+  };
+
   return (
     <main className="inner-page music-page">
       <CalmBackground />
       <InnerHeader />
       <section className="wide-wrap music-wrap">
+        <nav className="section-tabs" aria-label="同频海滩分区">
+          <Link href="/plaza">大家的漂流瓶</Link>
+          <Link className="active" href="/music">大家在听</Link>
+        </nav>
         <div className="section-intro centered">
           <p className="eyebrow">小岸把耳机分你一边</p>
           <h1>把耳机里舍不得跳过的歌，留在海边</h1>
@@ -83,7 +108,7 @@ export default function MusicPage() {
                 <button type="button" className={platform === item ? "selected" : ""} key={item} onClick={() => setPlatform(item)}>{item}</button>
               ))}
             </div>
-            <label>官方分享链接<input value={url} onChange={(event) => setUrl(event.target.value)} placeholder="粘贴 QQ音乐 / 网易云音乐 / Apple Music 分享链接" /></label>
+            <label>音乐分享链接或整段分享文字<input value={url} onChange={(event) => updateShareText(event.target.value)} placeholder="例如：分享梁博的单曲…… https://163cn.tv/xxxx" /></label>
             <label>为什么想分享它<textarea value={note} maxLength={120} onChange={(event) => setNote(event.target.value)} placeholder="比如：前奏一响，像傍晚一个人走到海边。" /></label>
             <div className="music-submit-row">
               <span>{notice || `${note.length} / 120`}</span>

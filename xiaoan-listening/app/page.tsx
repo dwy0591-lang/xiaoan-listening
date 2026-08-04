@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { AmbientAudio, CalmBackground, SharePosterButton, ShareSiteButton, SiteMark } from "./ui";
+import { AmbientAudio, CalmBackground, PrimaryNav, SharePosterButton, ShareSiteButton, SiteMark } from "./ui";
 
 const gentleLines = [
   "我在岸边给你留了位置，不用解释，坐就好。",
@@ -29,6 +29,7 @@ export default function Home() {
       <CalmBackground />
       <header className="topbar">
         <SiteMark />
+        <PrimaryNav />
         <div className="header-actions">
           <ShareSiteButton />
           <AmbientAudio />
@@ -59,7 +60,6 @@ export default function Home() {
             <Link className="quiet-link" href="/plaza">
               去海边看看大家
             </Link>
-            <SharePosterButton />
           </div>
           <p className="privacy-note">你总能发现别人错过的小美好，也别忘了回头看看自己的可爱呀。</p>
         </div>
@@ -77,6 +77,22 @@ export default function Home() {
             <strong>小岸</strong>
             <span>会认真听，也不会催你</span>
           </div>
+        </div>
+      </section>
+
+      <section className="home-journey" aria-label="来到小岸之后可以做什么">
+        <div className="journey-heading">
+          <p className="handwritten-kicker">第一次来，不用想该从哪儿开始</p>
+          <h2>跟着小岸，走三小步就好</h2>
+        </div>
+        <div className="journey-grid">
+          <Link href="/write"><span>01</span><strong>把心事说出来</strong><small>不必组织好语言，小岸会先听懂你。</small></Link>
+          <Link href="/write"><span>02</span><strong>收一封贴着你的回信</strong><small>不是套话，是根据你刚刚写的内容来回。</small></Link>
+          <Link href="/joy"><span>03</span><strong>做一件让自己舒服的小事</strong><small>不用打卡，今天照顾到自己一次就很好。</small></Link>
+        </div>
+        <div className="home-share-row">
+          <p>如果你想到一个也需要被接住的人，可以把小岸带给他。</p>
+          <SharePosterButton />
         </div>
       </section>
 

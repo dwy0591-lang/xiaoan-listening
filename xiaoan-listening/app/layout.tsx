@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { AnalyticsBeacon, AudioExperienceProvider } from "./ui";
+import { AnalyticsBeacon, AudioExperienceProvider, MobileDock } from "./ui";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://xiaoan-listening.vercel.app";
 
@@ -51,6 +51,7 @@ export default function RootLayout({
         <AudioExperienceProvider>
           <AnalyticsBeacon />
           {children}
+          <MobileDock />
         </AudioExperienceProvider>
         <script
           type="application/ld+json"

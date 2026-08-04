@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { CalmBackground, CapybaraAside, InnerHeader } from "../ui";
 
 type Comment = { id: number; content: string; createdAt: string };
@@ -45,16 +46,26 @@ export default function PlazaPage() {
   const [drafts, setDrafts] = useState<Record<number, string>>({});
   const [errors, setErrors] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
+  const [loadNotice, setLoadNotice] = useState("");
 
   useEffect(() => {
     let active = true;
-    fetch("/api/posts")
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), 8000);
+    fetch("/api/posts", { signal: controller.signal })
       .then(async (response) => {
         const data = (await response.json()) as { posts?: Post[] };
         if (!response.ok) throw new Error("暂时无法连接");
-        return data.posts?.length ? data.posts : quietFallback;
+        if (!data.posts?.length) {
+          setLoadNotice("海滩今天有点安静，先读读小岸替你留下的几封信吧。");
+          return quietFallback;
+        }
+        return data.posts;
       })
-      .catch(() => quietFallback)
+      .catch(() => {
+        setLoadNotice("海浪刚刚把信件藏起来了。你仍然可以先看看这些示例来信，稍后再刷新。");
+        return quietFallback;
+      })
       .then((nextPosts) => {
         if (!active) return;
         setPosts(nextPosts);
@@ -62,6 +73,8 @@ export default function PlazaPage() {
       });
     return () => {
       active = false;
+      window.clearTimeout(timer);
+      controller.abort();
     };
   }, []);
 
@@ -98,6 +111,10 @@ export default function PlazaPage() {
       <CalmBackground />
       <InnerHeader />
       <section className="wide-wrap">
+        <nav className="section-tabs" aria-label="同频海滩分区">
+          <Link className="active" href="/plaza">大家的漂流瓶</Link>
+          <Link href="/music">大家在听</Link>
+        </nav>
         <div className="section-intro centered">
           <span className="section-number">02</span>
           <p className="eyebrow">小岸把漂流瓶摆好了</p>
@@ -107,8 +124,10 @@ export default function PlazaPage() {
         <CapybaraAside>漂流瓶排好啦。你慢慢看，看到想抱抱的人就留一句话。</CapybaraAside>
 
         {loading ? (
-          <p className="loading-copy">正在打开一封封匿名来信…</p>
+          <div className="shore-loading" role="status"><span>≈</span><p>正在打开一封封匿名来信…</p></div>
         ) : (
+          <>
+          {loadNotice && <p className="plaza-notice">{loadNotice}</p>}
           <div className="masonry">
             {posts.map((post, index) => (
               <article className={`thought-card paper-${(index % 3) + 1}`} key={post.id}>
@@ -168,6 +187,7 @@ export default function PlazaPage() {
               </article>
             ))}
           </div>
+          </>
         )}
       </section>
     </main>
